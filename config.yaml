@@ -1,0 +1,18 @@
+minio:
+  credentials:
+    root_user: minioadmin
+    root_password: minioadmin
+  ports:
+    api: 9000
+    console: 9001
+  buckets:
+    - name: market-data
+      files:
+        - path: ftse_daily.parquet
+          attributes:
+            type: document
+            created: "2025"
+          tags:
+            project: Test
+            version: "1.0"
+    - name: trading-data
