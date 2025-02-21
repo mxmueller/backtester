@@ -1,6 +1,8 @@
 import pandas as pd
+import numpy as np
 from typing import Dict, Tuple, List
 from config import trading_config
+
 
 def calculate_trading_costs(position_size: float, exit_value: float, config: Dict) -> Tuple[float, float]:
     entry_costs = (
@@ -15,6 +17,7 @@ def calculate_trading_costs(position_size: float, exit_value: float, config: Dic
     )
     return entry_costs, exit_costs
 
+
 def _calculate_metrics(performance_series: pd.Series) -> Dict:
     return {
         'total_trades': len(performance_series),
@@ -26,7 +29,18 @@ def _calculate_metrics(performance_series: pd.Series) -> Dict:
         'win_rate': len(performance_series[performance_series > 0]) / len(performance_series)
     }
 
-def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Dict = None) -> Tuple[pd.DataFrame, List[Dict], List[Dict]]:
+
+def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, trading_days: int = 252) -> float:
+    if len(returns) < 2:
+        return float('nan')
+
+    daily_rf_rate = (1 + risk_free_rate) ** (1 / trading_days) - 1
+    excess_returns = returns - daily_rf_rate
+    return excess_returns.mean() / excess_returns.std() * np.sqrt(trading_days)
+
+
+def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Dict = None) -> Tuple[
+    pd.DataFrame, List[Dict], List[Dict]]:
     if config is None:
         config = trading_config
 
@@ -142,8 +156,9 @@ def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Dict = None
 
     return ts_data, trade_performances, trade_costs
 
-def calculate_performance_metrics(ts_data: pd.DataFrame, trade_performances: List[Dict],
-                               trade_costs: List[Dict], config: Dict = None) -> Dict:
+
+def calculate_performance_metrics(ts_data: pd.DataFrame, trade_performances: List[Dict], trade_costs: List[Dict],
+                                  config: Dict = None) -> Dict:
     if config is None:
         config = trading_config
 
@@ -168,6 +183,15 @@ def calculate_performance_metrics(ts_data: pd.DataFrame, trade_performances: Lis
     executed_trades = len(trade_performances)
     total_costs = ts_data['cumulative_costs'].iloc[-1]
 
+    daily_returns = ts_data['daily_pnl'] / ts_data['total_capital'].shift(1)
+    daily_returns = daily_returns.dropna()
+
+    sharpe_ratio = None
+    if len(daily_returns) >= 2:
+        sharpe = calculate_sharpe_ratio(daily_returns, config['risk_free_rate'])
+        if not np.isnan(sharpe):
+            sharpe_ratio = float(sharpe)
+
     return {
         'total_trades': executed_trades,
         'profitable_days': len(ts_data[ts_data['daily_pnl'] > 0]),
@@ -178,6 +202,8 @@ def calculate_performance_metrics(ts_data: pd.DataFrame, trade_performances: Lis
         'max_drawdown': (ts_data['total_capital'].min() - config['initial_capital']) / config['initial_capital'],
         'raw_performance': _calculate_metrics(raw_performance_series),
         'net_performance': _calculate_metrics(net_performance_series),
+        'daily_returns': daily_returns,
+        'sharpe_ratio': sharpe_ratio,
         'costs': {
             'total_costs': total_costs,
             'avg_cost_per_trade': total_costs / executed_trades,

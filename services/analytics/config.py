@@ -25,4 +25,5 @@ trading_config = {
     "fixed_commission": 1.0,
     "variable_fee": 0.00018,
     "bid_ask_spread": 0.001,
+    "risk_free_rate": 0.00
 }
