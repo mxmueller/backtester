@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import Dict, List
+from .portfolio import calculate_trade_performance_timeseries, calculate_performance_metrics
 
 
 def get_pairs_by_window(df: pd.DataFrame, window: int = None) -> Dict:
@@ -26,3 +27,18 @@ def get_pairs_by_window(df: pd.DataFrame, window: int = None) -> Dict:
         }
 
     return result
+
+
+def get_pair_performance(df: pd.DataFrame, symbol1: str, symbol2: str, window: int = None) -> Dict:
+    pair_filter = ((df['symbol'] == symbol1) & (df['paired_symbol'] == symbol2)) | \
+                  ((df['symbol'] == symbol2) & (df['paired_symbol'] == symbol1))
+
+    if window is not None:
+        pair_filter &= (df['window'] == window)
+
+    pair_trades = df[pair_filter].copy()
+    if pair_trades.empty:
+        return {}
+
+    ts_data, trade_performances, trade_costs = calculate_trade_performance_timeseries(pair_trades)
+    return calculate_performance_metrics(ts_data, trade_performances, trade_costs)
