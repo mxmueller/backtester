@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 from config import trading_config
-
 
 def calculate_trading_costs(position_size: float, exit_value: float, config: Dict) -> Tuple[float, float]:
     entry_costs = (
@@ -17,7 +16,6 @@ def calculate_trading_costs(position_size: float, exit_value: float, config: Dic
     )
     return entry_costs, exit_costs
 
-
 def _calculate_metrics(performance_series: pd.Series) -> Dict:
     return {
         'total_trades': len(performance_series),
@@ -29,7 +27,6 @@ def _calculate_metrics(performance_series: pd.Series) -> Dict:
         'win_rate': len(performance_series[performance_series > 0]) / len(performance_series)
     }
 
-
 def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, trading_days: int = 252) -> float:
     if len(returns) < 2:
         return float('nan')
@@ -38,9 +35,7 @@ def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, trad
     excess_returns = returns - daily_rf_rate
     return excess_returns.mean() / excess_returns.std() * np.sqrt(trading_days)
 
-
-def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Dict = None) -> Tuple[
-    pd.DataFrame, List[Dict], List[Dict]]:
+def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Optional[Dict] = None) -> Tuple[pd.DataFrame, List[Dict], List[Dict]]:
     if config is None:
         config = trading_config
 
@@ -156,9 +151,8 @@ def calculate_trade_performance_timeseries(df: pd.DataFrame, config: Dict = None
 
     return ts_data, trade_performances, trade_costs
 
-
 def calculate_performance_metrics(ts_data: pd.DataFrame, trade_performances: List[Dict], trade_costs: List[Dict],
-                                  config: Dict = None) -> Dict:
+                                  config: Optional[Dict] = None) -> Dict:
     if config is None:
         config = trading_config
 

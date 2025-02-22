@@ -1,170 +1,95 @@
 import streamlit as st
-import requests
-import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-import networkx as nx
-import numpy as np
+from plotly.subplots import make_subplots
+import asyncio
+from api import APIClient
 
 st.set_page_config(layout="wide")
 
-API_URL = 'http://127.0.0.1:8000/api'
 
-try:
-    response_markets = requests.get(API_URL + '/markets')
-    response_markets.raise_for_status()
-    available_markets = response_markets.json().get('markets', [])
-except requests.exceptions.RequestException as e:
-    st.error(f"Error connecting to API for markets: {e}")
-    available_markets = []
+def create_timeseries_chart(data):
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True,
+                        vertical_spacing=0.05,
+                        row_heights=[0.4, 0.2, 0.2, 0.2],
+                        subplot_titles=(
+                        "Portfolio Performance", "Capital Allocation", "Active Positions", "Daily PnL & Costs"))
 
-if not available_markets:
-    st.stop()
+    dates = list(data.keys())
 
-selected_market = st.selectbox('Choose a Market:', available_markets)
+    # Performance with and without costs
+    fig.add_trace(
+        go.Scatter(x=dates, y=[d['performance_pct'] * 100 for d in data.values()],
+                   name="Net Performance", line=dict(color='blue')), row=1, col=1)
+    fig.add_trace(
+        go.Scatter(x=dates, y=[(d['cumulative_pnl'] / d['total_capital']) * 100 for d in data.values()],
+                   name="Gross Performance", line=dict(color='lightblue', dash='dash')), row=1, col=1)
 
-if not selected_market:
-    st.stop()
+    # Capital allocation
+    fig.add_trace(
+        go.Scatter(x=dates, y=[d['invested_capital'] for d in data.values()],
+                   name="Invested", line=dict(color='orange')), row=2, col=1)
+    fig.add_trace(
+        go.Scatter(x=dates, y=[d['available_capital'] for d in data.values()],
+                   name="Available", line=dict(color='green')), row=2, col=1)
 
-tab1, tab2 = st.tabs(["Market Analysis", "Pairs Analysis"])
+    # Active positions
+    fig.add_trace(
+        go.Bar(x=dates, y=[d['active_positions'] for d in data.values()],
+               name="Active Positions", marker_color='purple'), row=3, col=1)
 
-with tab1:
-    try:
-        response_index = requests.get(API_URL + f'/markets/{selected_market}/index')
-        response_index.raise_for_status()
-        index_data = response_index.json()
+    # Daily PnL and costs
+    fig.add_trace(
+        go.Bar(x=dates, y=[d['daily_pnl'] for d in data.values()],
+               name="Daily PnL"), row=4, col=1)
+    fig.add_trace(
+        go.Scatter(x=dates, y=[d['daily_costs'] for d in data.values()],
+                   name="Daily Costs", line=dict(color='red')), row=4, col=1)
 
-        if not index_data:
-            st.warning(f"No index data returned for {selected_market}")
-            st.stop()
+    fig.update_layout(height=1000, showlegend=True)
 
-        df_index = pd.DataFrame.from_dict(index_data, orient='index')
+    # Add percentage symbols to first y-axis
+    fig.update_yaxes(ticksuffix="%", row=1, col=1)
 
-        fig_index = px.line(df_index, x=df_index.index, y='index', title=f"{selected_market} Market Index")
-        fig_index.update_xaxes(
-            title_text="Year",
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1d", step="day", stepmode="backward"),
-                    dict(count=7, label="1w", step="day", stepmode="backward"),
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ])
-            )
-        )
-        st.plotly_chart(fig_index)
-
-        response_symbols = requests.get(API_URL + f'/markets/{selected_market}/symbols')
-        response_symbols.raise_for_status()
-        available_symbols = response_symbols.json().get('symbols', [])
-
-        if not available_symbols:
-            st.warning(f"No symbols returned for {selected_market}")
-            st.stop()
-
-        selected_symbol = st.selectbox(f'Choose a Stock:', available_symbols)
-
-        if selected_symbol:
-            response_symbol_data = requests.get(API_URL + f'/markets/{selected_market}/timeseries/{selected_symbol}')
-            response_symbol_data.raise_for_status()
-            symbol_data = response_symbol_data.json()
-
-            if symbol_data:
-                df_symbol = pd.DataFrame.from_dict(symbol_data, orient='index')
-                fig_symbol = px.line(df_symbol, x=df_symbol.index, y='close', title=f"{selected_symbol} Timeseries")
-                fig_symbol.update_xaxes(
-                    title_text="Year",
-                    rangeselector=dict(
-                        buttons=list([
-                            dict(count=1, label="1d", step="day", stepmode="backward"),
-                            dict(count=7, label="1w", step="day", stepmode="backward"),
-                            dict(count=1, label="1m", step="month", stepmode="backward"),
-                            dict(count=6, label="6m", step="month", stepmode="backward"),
-                            dict(count=1, label="1y", step="year", stepmode="backward"),
-                            dict(step="all")
-                        ])
-                    )
-                )
-                st.plotly_chart(fig_symbol)
-
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching data: {e}")
-
-with tab2:
-    st.header("Pairs Analysis")
-
-    try:
-        response_windows = requests.get(API_URL + f'/markets/{selected_market}/pairs/windows')
-        response_windows.raise_for_status()
-        available_windows = response_windows.json()
+    return fig
 
 
-        col1, col2 = st.columns([1, 2])
+async def main():
+    st.title("Trading Performance Analysis")
 
-        with col1:
-            # Corrected line: Use available_windows['windows'] to get the list
-            selected_window = st.selectbox("Select Window Size:", available_windows['windows'])
+    trading_params = {
+        "initial_capital": st.sidebar.number_input("Initial Capital", 10000, 1000000, 100000, step=10000),
+        "position_size_percent": st.sidebar.slider("Position Size %", 0.1, 5.0, 1.0, 0.1) / 100,
+        "fixed_commission": st.sidebar.number_input("Fixed Commission", 0.0, 10.0, 1.0, 0.1),
+        "variable_fee": st.sidebar.number_input("Variable Fee %", 0.0, 1.0, 0.018, 0.001) / 100,
+        "bid_ask_spread": st.sidebar.number_input("Bid-Ask Spread %", 0.0, 1.0, 0.1, 0.01) / 100,
+        "risk_free_rate": st.sidebar.number_input("Risk Free Rate %", 0.0, 10.0, 0.0, 0.1) / 100
+    }
 
-            if selected_window:
-                response_pairs = requests.get(API_URL + f'/markets/{selected_market}/pairs/window/{selected_window}')
-                response_pairs.raise_for_status()
-                pairs_data = response_pairs.json().get(str(selected_window), {})
+    async with APIClient() as client:
+        markets = await client.get_markets()
+        market = st.selectbox("Select Market", markets)
 
-                if pairs_data:
-                    st.metric("Total Pairs", pairs_data["total_pairs"])
-                    st.metric("Total Trades", pairs_data["total_trades"])
+        timeseries = await client.get_performance_timeseries(market, trading_params)
 
-                    pairs_list = pairs_data.get("pairs", [])
+        if timeseries:
+            last_data = list(timeseries.values())[-1]
+            cols = st.columns(4)
 
-                    G = nx.Graph()
-                    edge_weights = []
+            net_perf = last_data['performance_pct'] * 100
+            gross_perf = (last_data['cumulative_pnl'] / last_data['total_capital']) * 100
+            cost_impact = gross_perf - net_perf
 
-                    for pair_info in pairs_list:
-                        stock1, stock2 = pair_info["pair"]
-                        trades = pair_info["trades"]
-                        G.add_edge(stock1, stock2, weight=trades)
-                        edge_weights.append(trades)
+            cols[0].metric("Net Performance", f"{net_perf:.1f}%")
+            cols[1].metric("Gross Performance", f"{gross_perf:.1f}%")
+            cols[2].metric("Cost Impact", f"{cost_impact:.1f}%")
+            cols[3].metric("Active Positions", last_data['active_positions'])
 
-                    pos = nx.spring_layout(G)
+            fig = create_timeseries_chart(timeseries)
+            st.plotly_chart(fig, use_container_width=True)
 
-                    edge_trace = go.Scatter(
-                        x=[], y=[], line=dict(width=0.5, color='#888'), hoverinfo='none', mode='lines')
+            with st.expander("Raw Timeseries Data"):
+                st.json(timeseries)
 
-                    for edge in G.edges():
-                        x0, y0 = pos[edge[0]]
-                        x1, y1 = pos[edge[1]]
-                        edge_trace['x'] += tuple([x0, x1, None])
-                        edge_trace['y'] += tuple([y0, y1, None])
 
-                    node_trace = go.Scatter(
-                        x=[], y=[], text=[], mode='markers+text', hoverinfo='text',
-                        marker=dict(size=20, line_width=2))
-
-                    for node in G.nodes():
-                        x, y = pos[node]
-                        node_trace['x'] += tuple([x])
-                        node_trace['y'] += tuple([y])
-                        node_trace['text'] += tuple([node])
-
-                    fig = go.Figure(data=[edge_trace, node_trace],
-                                    layout=go.Layout(
-                                        showlegend=False,
-                                        hovermode='closest',
-                                        margin=dict(b=20, l=5, r=5, t=40),
-                                        title=f"Pairs Network - Window {selected_window}",
-                                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                                    )
-
-                    with col2:
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    st.subheader("Pairs Details")
-                    df_pairs = pd.DataFrame(pairs_list)
-                    df_pairs['pair'] = df_pairs['pair'].apply(lambda x: ' - '.join(x))
-                    st.dataframe(df_pairs.sort_values('trades', ascending=False))
-
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching pairs data: {e}")
+if __name__ == "__main__":
+    asyncio.run(main())

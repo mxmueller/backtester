@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Dict, List
+from typing import Dict, List, Optional
 from config import trading_config
 from .portfolio import calculate_trade_performance_timeseries, calculate_performance_metrics
 
@@ -14,7 +14,7 @@ def get_trades_for_symbol(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         'profit' if x > 0 else ('break-even' if x == 0 else 'loss'))
     return symbol_trades
 
-def get_symbol_performance(df: pd.DataFrame, symbol: str, window: int = None) -> Dict:
+def get_symbol_performance(df: pd.DataFrame, symbol: str, window: Optional[int] = None, config: Optional[Dict] = None) -> Dict:
     symbol_filter = df['symbol'] == symbol
     if window is not None:
         symbol_filter &= (df['window'] == window)
@@ -23,5 +23,5 @@ def get_symbol_performance(df: pd.DataFrame, symbol: str, window: int = None) ->
     if symbol_trades.empty:
         return {}
 
-    ts_data, trade_performances, trade_costs = calculate_trade_performance_timeseries(symbol_trades)
-    return calculate_performance_metrics(ts_data, trade_performances, trade_costs)
+    ts_data, trade_performances, trade_costs = calculate_trade_performance_timeseries(symbol_trades, config)
+    return calculate_performance_metrics(ts_data, trade_performances, trade_costs, config)

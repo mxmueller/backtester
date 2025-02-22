@@ -7,8 +7,9 @@ RUN curl -O https://dl.min.io/client/mc/release/linux-amd64/mc && \
 COPY setup.sh /setup.sh
 RUN chmod +x /setup.sh
 
-# Kopiere deine Parquet-Dateien ins Image (z.B. ins Root-Verzeichnis)
 COPY ftse_daily.parquet /ftse_daily.parquet
+COPY nasdaq_daily.parquet /nasdaq_daily.parquet
+COPY ftse_trades2.parquet /ftse_trades2.parquet
 COPY ftse_trades.parquet /ftse_trades.parquet
 
 ENV MINIO_ROOT_USER=minioadmin
