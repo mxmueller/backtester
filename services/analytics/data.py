@@ -59,10 +59,10 @@ class MarketData:
             df = pd.read_parquet(io.BytesIO(data))
             df['date'] = pd.to_datetime(df['date'])
             df = df.set_index('date')
-            self.market_data[market_name] = df
+            self.market_data[market_name.upper()] = df
 
     def get_market_data(self, market_name: str) -> Optional[pd.DataFrame]:
-        return self.market_data.get(market_name.lower())
+        return self.market_data.get(market_name.upper())
 
     def get_markets(self) -> List[str]:
         return list(self.market_data.keys())

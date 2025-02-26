@@ -40,38 +40,20 @@ async def get_market_strategies(market_name: str):
 
 
 @app.get("/api/markets/{market_name}/symbols", tags=["Symbols"])
-async def get_symbols_for_market(
-        market_name: str,
-        strategy_version: str = Query(..., description="Strategy version ID")
-):
+async def get_symbols_for_market(market_name: str):
     df = market_data.get_market_data(market_name)
     if df is None:
         raise HTTPException(status_code=404, detail="Market not found")
 
-    try:
-        trade_df = trade_data.load_strategy(market_name, strategy_version)
-        symbols = trade_df['symbol'].unique().tolist()
-        return {"symbols": symbols}
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Strategy not found: {str(e)}")
+    symbols = market.get_market_symbols(df)
+    return {"symbols": symbols}
 
 
 @app.get("/api/markets/{market_name}/timeseries/{symbol}", tags=["Timeseries"])
-async def get_timeseries(
-        market_name: str,
-        symbol: str,
-        strategy_version: str = Query(..., description="Strategy version ID")
-):
+async def get_timeseries(market_name: str, symbol: str):
     df = market_data.get_market_data(market_name)
     if df is None:
         raise HTTPException(status_code=404, detail="Market not found")
-
-    try:
-        trade_df = trade_data.load_strategy(market_name, strategy_version)
-        if symbol not in trade_df['symbol'].unique():
-            raise HTTPException(status_code=404, detail="Symbol not found in strategy")
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Strategy not found: {str(e)}")
 
     timeseries_data = get_symbol_timeseries(df, symbol)
     if not timeseries_data:
@@ -80,21 +62,12 @@ async def get_timeseries(
 
 
 @app.get("/api/markets/{market_name}/index", tags=["Index"])
-async def get_market_index(
-        market_name: str,
-        strategy_version: str = Query(..., description="Strategy version ID")
-):
+async def get_market_index(market_name: str):
     df = market_data.get_market_data(market_name)
     if df is None:
         raise HTTPException(status_code=404, detail="Market not found")
 
-    try:
-        trade_df = trade_data.load_strategy(market_name, strategy_version)
-        symbols = trade_df['symbol'].unique()
-        df_filtered = df[df['symbol'].isin(symbols)]
-        return index.calculate_market_index(df_filtered)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Strategy not found: {str(e)}")
+    return index.calculate_market_index(df)
 
 
 @app.get("/api/markets/{market_name}/trades/performance", tags=["Trades"])
