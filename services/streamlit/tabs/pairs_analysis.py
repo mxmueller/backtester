@@ -23,7 +23,7 @@ def render(api_client: APIClient, config: Config):
         st.warning("No trading windows available for this strategy")
         return
 
-    # Window selection
+    
     selected_window = st.selectbox(
         "Select Trading Window",
         windows,
@@ -35,19 +35,19 @@ def render(api_client: APIClient, config: Config):
         st.info("Please select a trading window")
         return
 
-    # Get pairs for selected window
+    
     pairs_data = api_client.get_pairs_for_window(market, selected_window, strategy)
 
     if not pairs_data:
         st.warning(f"No pairs data available for window {selected_window}")
         return
 
-    # Der Schlüssel kann ein String oder ein Int sein - wir versuchen beides
+    
     window_key = str(selected_window)
     window_data = pairs_data.get(window_key, {})
 
     if not window_data and selected_window in pairs_data:
-        # Versuche mit Integer-Schlüssel
+        
         window_data = pairs_data.get(selected_window, {})
 
     if not window_data:
@@ -63,7 +63,7 @@ def render(api_client: APIClient, config: Config):
         st.subheader("Pairs Overview")
 
         if pairs_list:
-            # Create dataframe from pairs
+            
             pairs_df = pd.DataFrame([
                 {
                     'Pair': f"{p['pair'][0]} - {p['pair'][1]}",
@@ -73,8 +73,7 @@ def render(api_client: APIClient, config: Config):
                 }
                 for p in pairs_list
             ])
-
-            # Summary metrics
+            
             total_pairs = window_data.get('total_pairs', 0)
             total_trades = window_data.get('total_trades', 0)
 
@@ -82,12 +81,12 @@ def render(api_client: APIClient, config: Config):
             col_a.metric("Total Pairs", total_pairs)
             col_b.metric("Total Trades", total_trades)
 
-            # Pairs distribution
+            
             if not pairs_df.empty:
                 pairs_df = pairs_df.sort_values('Trades', ascending=False)
 
                 fig = px.bar(
-                    pairs_df.head(20),  # Show top 20 pairs
+                    pairs_df.head(20),  
                     x='Pair',
                     y='Trades',
                     title=f"Top 20 Pairs by Trade Count (Window {selected_window})",
@@ -100,7 +99,7 @@ def render(api_client: APIClient, config: Config):
                 )
                 st.plotly_chart(fig, use_container_width=True, key="pairs_distribution_chart")
 
-                # Show pairs table
+                
                 st.dataframe(
                     pairs_df.sort_values('Trades', ascending=False),
                     use_container_width=True,
@@ -114,19 +113,19 @@ def render(api_client: APIClient, config: Config):
         st.subheader("Pair Analysis")
 
         if pairs_list:
-            # Extract all symbols from pairs
+            
             all_symbols = set()
             for p in pairs_list:
                 all_symbols.update(p['pair'])
 
-            # Symbol selection for pair analysis
+            
             symbol1 = st.selectbox(
                 "Select First Symbol",
                 sorted(list(all_symbols)),
                 key="pairs_symbol1_selector"
             )
 
-            # Filter second symbol options to only include those paired with first symbol
+            
             valid_second_symbols = set()
             for p in pairs_list:
                 if symbol1 in p['pair']:
@@ -141,7 +140,7 @@ def render(api_client: APIClient, config: Config):
             )
 
             if symbol1 and symbol2:
-                # Get pair performance
+                
                 pair_performance = api_client.get_pair_performance(
                     market,
                     symbol1,
@@ -152,7 +151,7 @@ def render(api_client: APIClient, config: Config):
                 )
 
                 if pair_performance:
-                    # Find the pair in our pairs list to get trade count
+                    
                     trade_count = 0
                     for p in pairs_list:
                         if symbol1 in p['pair'] and symbol2 in p['pair']:
@@ -161,7 +160,7 @@ def render(api_client: APIClient, config: Config):
 
                     st.metric("Trades", trade_count)
 
-                    # Performance metrics
+                    
                     if 'net_performance' in pair_performance:
                         net_perf = pair_performance['net_performance']
 
@@ -187,12 +186,11 @@ def render(api_client: APIClient, config: Config):
                             hide_index=True,
                             key="pairs_metrics_table"
                         )
-
-                        # Sharpe ratio
+          
                         if 'sharpe_ratio' in pair_performance and pair_performance['sharpe_ratio'] is not None:
                             st.metric("Sharpe Ratio", f"{pair_performance['sharpe_ratio']:.2f}")
 
-                        # Costs
+                        
                         if 'costs' in pair_performance:
                             costs = pair_performance['costs']
                             st.metric("Total Costs", f"${costs.get('total_costs', 0):.2f}")
@@ -206,7 +204,7 @@ def render(api_client: APIClient, config: Config):
         else:
             st.info("No pairs available for selection")
 
-    # Get timeseries for pairs comparison if symbols are selected
+    
     if 'symbol1' in locals() and 'symbol2' in locals() and symbol1 and symbol2:
         st.subheader("Pair Price Comparison")
 
@@ -214,7 +212,7 @@ def render(api_client: APIClient, config: Config):
         symbol2_data = api_client.get_timeseries(market, symbol2)
 
         if symbol1_data and symbol2_data:
-            # Create dataframes
+            
             df1 = pd.DataFrame([
                 {
                     'date': date,
@@ -237,7 +235,7 @@ def render(api_client: APIClient, config: Config):
             combined_df['date'] = pd.to_datetime(combined_df['date'])
             combined_df = combined_df.sort_values('date')
 
-            # Normalize prices
+            
             pivot_df = combined_df.pivot(index='date', columns='symbol', values='price')
             start_date = pivot_df.index.min()
 
@@ -245,7 +243,7 @@ def render(api_client: APIClient, config: Config):
                 start_val = pivot_df.loc[start_date, col]
                 pivot_df[f"{col}_norm"] = pivot_df[col] / start_val * 100
 
-            # Plot normalized prices
+            
             fig = go.Figure()
 
             fig.add_trace(go.Scatter(
@@ -262,8 +260,8 @@ def render(api_client: APIClient, config: Config):
                 name=symbol2
             ))
 
-            # Calculate and plot spread
-            if len(pivot_df.columns) >= 4:  # Both normalized columns exist
+            
+            if len(pivot_df.columns) >= 4:  
                 pivot_df['spread'] = pivot_df[f"{symbol1}_norm"] - pivot_df[f"{symbol2}_norm"]
 
                 fig.add_trace(go.Scatter(
@@ -282,7 +280,7 @@ def render(api_client: APIClient, config: Config):
             )
             st.plotly_chart(fig, use_container_width=True, key="pairs_comparison_chart")
 
-            # Statistics about the pair
+            
             if 'spread' in pivot_df.columns:
                 col_a, col_b, col_c = st.columns(3)
 
@@ -290,11 +288,11 @@ def render(api_client: APIClient, config: Config):
                 col_b.metric("Max Spread", f"{pivot_df['spread'].max():.2f}")
                 col_c.metric("Min Spread", f"{pivot_df['spread'].min():.2f}")
 
-                # Correlation
+                
                 correlation = pivot_df[[symbol1, symbol2]].corr().iloc[0, 1]
                 st.metric("Price Correlation", f"{correlation:.4f}")
 
-                # Spread distribution
+                
                 fig_hist = px.histogram(
                     pivot_df,
                     x='spread',
@@ -307,22 +305,22 @@ def render(api_client: APIClient, config: Config):
         else:
             st.warning("Could not fetch price data for both symbols")
 
-            # Nach dem vorherigen Abschnitt für die Preis-Vergleichsdiagramme füge Folgendes hinzu:
+            
 
-            # Trades visualization
+            
         if 'symbol1' in locals() and 'symbol2' in locals() and symbol1 and symbol2:
             st.subheader("Trades Visualization")
 
-            # Hole die Trades für beide Symbole
+            
             symbol1_trades = api_client.get_symbol_trades(market, symbol1, strategy)
             symbol2_trades = api_client.get_symbol_trades(market, symbol2, strategy)
 
-            # Filtere nur die Trades, die mit dem anderen Symbol gepaart sind
+            
             symbol1_filtered_trades = [t for t in symbol1_trades if t.get('paired_symbol') == symbol2]
             symbol2_filtered_trades = [t for t in symbol2_trades if t.get('paired_symbol') == symbol1]
 
             if symbol1_filtered_trades or symbol2_filtered_trades:
-                # Kombiniere für die Zeitreisenansicht
+                
                 all_trades = pd.DataFrame([
                     {
                         'symbol': t['symbol'],
@@ -339,7 +337,7 @@ def render(api_client: APIClient, config: Config):
                 ])
 
                 if not all_trades.empty:
-                    # Statistiken zu den Trades
+                    
                     total_trades = len(all_trades)
                     profit_trades = len(all_trades[all_trades['exit_type'] == 'profit'])
                     loss_trades = len(all_trades[all_trades['exit_type'] == 'loss'])
@@ -351,7 +349,7 @@ def render(api_client: APIClient, config: Config):
                     col3.metric("Loss Trades", loss_trades)
                     col4.metric("Break-Even", breakeven_trades)
 
-                    # Ermittle den Zeitraum für aktive Trades
+                    
                     active_trade_dates = []
                     for _, trade in all_trades.iterrows():
                         active_trade_dates.append(trade['entry_date'])
@@ -361,20 +359,20 @@ def render(api_client: APIClient, config: Config):
                         earliest_trade = min(active_trade_dates)
                         latest_trade = max(active_trade_dates)
 
-                        # Füge etwas Puffer hinzu (15% der Zeitspanne vor und nach den Trades)
+                        
                         trade_timespan = (latest_trade - earliest_trade).days
-                        buffer_days = max(trade_timespan * 0.15, 7)  # Mindestens 7 Tage oder 15% der Zeitspanne
+                        buffer_days = max(trade_timespan * 0.15, 7)  
                         trade_view_start = earliest_trade - pd.Timedelta(days=buffer_days)
                         trade_view_end = latest_trade + pd.Timedelta(days=buffer_days)
 
-                        # Option für den Benutzer: Nur aktive Trade-Zeiträume anzeigen oder alle Daten
+                        
                         view_option = st.radio(
                             "Anzeige-Option",
                             ["Nur aktive Trade-Zeiträume", "Alle Daten"],
                             horizontal=True
                         )
 
-                        # Bereite Farben für die Trade-Marker vor
+                        
                         colors = {
                             'profit': 'green',
                             'loss': 'red',
@@ -382,9 +380,9 @@ def render(api_client: APIClient, config: Config):
                             'unknown': 'gray'
                         }
 
-                        # Erstelle separate Charts für jedes Symbol
+                        
                         if 'pivot_df' in locals() and not pivot_df.empty:
-                            # Filtere den Zeitraum, wenn die fokussierte Ansicht gewählt wurde
+                            
                             if view_option == "Nur aktive Trade-Zeiträume":
                                 filtered_df = pivot_df.loc[(pivot_df.index >= trade_view_start) &
                                                            (pivot_df.index <= trade_view_end)].copy()
@@ -393,13 +391,13 @@ def render(api_client: APIClient, config: Config):
 
 
 
-                            # Erstelle Chart für Symbol 1
+                            
                             fig_symbol1 = go.Figure()
 
-                            # Initialisiere ein Dictionary für jede neue Kategorie von Exit-Typen
+                            
                             exit_types_shown = {exit_type: True for exit_type in colors.keys()}
 
-                            # Preislinie für Symbol 1 (grau)
+                            
                             fig_symbol1.add_trace(go.Scatter(
                                 x=filtered_df.index,
                                 y=filtered_df[symbol1],
@@ -411,10 +409,10 @@ def render(api_client: APIClient, config: Config):
                                            for d, p in zip(filtered_df.index, filtered_df[symbol1])]
                             ))
 
-                            # Symbol 1 Trades mit Legendenkontrolle
+                            
                             s1_trades = all_trades[all_trades['symbol'] == symbol1]
                             for idx, (_, trade) in enumerate(s1_trades.iterrows()):
-                                # Prüfe, ob der Trade im angezeigten Bereich liegt (wenn wir gefiltert haben)
+                                
                                 if view_option == "Nur aktive Trade-Zeiträume" and not (
                                         (trade['entry_date'] >= trade_view_start and trade[
                                             'entry_date'] <= trade_view_end) or
@@ -423,7 +421,7 @@ def render(api_client: APIClient, config: Config):
                                 ):
                                     continue
 
-                                # Entry marker für Symbol 1 mit Legende
+                                
                                 fig_symbol1.add_trace(go.Scatter(
                                     x=[trade['entry_date']],
                                     y=[trade['entry_price']],
@@ -440,10 +438,10 @@ def render(api_client: APIClient, config: Config):
                                               f"Symbol: {symbol1}<br>"
                                               f"Price: {trade['entry_price']:.2f}<br>"
                                               f"Type: {trade['position_type']}",
-                                    showlegend=idx == 0  # Nur beim ersten Trade die Legende anzeigen
+                                    showlegend=idx == 0  
                                 ))
 
-                                # Exit marker mit Legende
+                                
                                 fig_symbol1.add_trace(go.Scatter(
                                     x=[trade['exit_date']],
                                     y=[trade['exit_price']],
@@ -462,14 +460,14 @@ def render(api_client: APIClient, config: Config):
                                               f"Type: {trade['exit_type']}<br>"
                                               f"Perf: {trade['performance']:.2%}",
                                     showlegend=exit_types_shown.get(trade['exit_type'], True)
-                                    # Zeige die Legende nur beim ersten Mal für diesen Exit-Typ
+                                    
                                 ))
 
-                                # Markiere diesen Exit-Typ als bereits in der Legende angezeigt
+                                
                                 if exit_types_shown.get(trade['exit_type'], True):
                                     exit_types_shown[trade['exit_type']] = False
 
-                                # Verbindungslinie zwischen Entry und Exit (halbtransparent)
+                                
                                 fig_symbol1.add_trace(go.Scatter(
                                     x=[trade['entry_date'], trade['exit_date']],
                                     y=[trade['entry_price'], trade['exit_price']],
@@ -482,7 +480,7 @@ def render(api_client: APIClient, config: Config):
                                     showlegend=False
                                 ))
 
-                            # Layout für Symbol 1 Chart ohne Schieberegler
+                            
                             fig_symbol1.update_layout(
                                 title=f"{symbol1} Trades Timeline",
                                 xaxis=dict(
@@ -499,7 +497,7 @@ def render(api_client: APIClient, config: Config):
                                 plot_bgcolor='rgba(255,255,255,1)'
                             )
 
-                            # Aktiviere Zoom/Pan-Werkzeuge mit besser positioniertem Button
+                            
                             fig_symbol1.update_layout(
                                 updatemenus=[
                                     dict(
@@ -522,13 +520,13 @@ def render(api_client: APIClient, config: Config):
 
                             st.plotly_chart(fig_symbol1, use_container_width=True)
 
-                            # Erstelle Chart für Symbol 2
+                            
                             fig_symbol2 = go.Figure()
 
-                            # Für Symbol 2 setzen wir das Dictionary zurück, um die Legende erneut zu erstellen
+                            
                             exit_types_shown = {exit_type: True for exit_type in colors.keys()}
 
-                            # Preislinie für Symbol 2 (grau)
+                            
                             fig_symbol2.add_trace(go.Scatter(
                                 x=filtered_df.index,
                                 y=filtered_df[symbol2],
@@ -540,10 +538,10 @@ def render(api_client: APIClient, config: Config):
                                            for d, p in zip(filtered_df.index, filtered_df[symbol2])]
                             ))
 
-                            # Symbol 2 Trades
+                            
                             s2_trades = all_trades[all_trades['symbol'] == symbol2]
                             for idx, (_, trade) in enumerate(s2_trades.iterrows()):
-                                # Prüfe, ob der Trade im angezeigten Bereich liegt (wenn wir gefiltert haben)
+                                
                                 if view_option == "Nur aktive Trade-Zeiträume" and not (
                                         (trade['entry_date'] >= trade_view_start and trade[
                                             'entry_date'] <= trade_view_end) or
@@ -552,7 +550,7 @@ def render(api_client: APIClient, config: Config):
                                 ):
                                     continue
 
-                                # Entry marker für Symbol 2 mit Legende
+                                
                                 fig_symbol2.add_trace(go.Scatter(
                                     x=[trade['entry_date']],
                                     y=[trade['entry_price']],
@@ -560,7 +558,7 @@ def render(api_client: APIClient, config: Config):
                                     marker=dict(
                                         symbol='triangle-up' if trade['position_type'] == 'long' else 'triangle-down',
                                         size=14,
-                                        color='blue',  # Gleiche Farbe wie bei Symbol 1
+                                        color='blue',  
                                         line=dict(width=1.5, color='black')
                                     ),
                                     name=f"{trade['position_type'].title()} Entry",
@@ -569,10 +567,10 @@ def render(api_client: APIClient, config: Config):
                                               f"Symbol: {symbol2}<br>"
                                               f"Price: {trade['entry_price']:.2f}<br>"
                                               f"Type: {trade['position_type']}",
-                                    showlegend=idx == 0  # Nur beim ersten Trade die Legende anzeigen
+                                    showlegend=idx == 0  
                                 ))
 
-                                # Exit marker mit Legende
+                                
                                 fig_symbol2.add_trace(go.Scatter(
                                     x=[trade['exit_date']],
                                     y=[trade['exit_price']],
@@ -591,14 +589,14 @@ def render(api_client: APIClient, config: Config):
                                               f"Type: {trade['exit_type']}<br>"
                                               f"Perf: {trade['performance']:.2%}",
                                     showlegend=exit_types_shown.get(trade['exit_type'], True)
-                                    # Zeige die Legende nur beim ersten Mal für diesen Exit-Typ
+                                    
                                 ))
 
-                                # Markiere diesen Exit-Typ als bereits in der Legende angezeigt
+                                
                                 if exit_types_shown.get(trade['exit_type'], True):
                                     exit_types_shown[trade['exit_type']] = False
 
-                                # Verbindungslinie zwischen Entry und Exit (halbtransparent)
+                                
                                 fig_symbol2.add_trace(go.Scatter(
                                     x=[trade['entry_date'], trade['exit_date']],
                                     y=[trade['entry_price'], trade['exit_price']],
@@ -611,7 +609,7 @@ def render(api_client: APIClient, config: Config):
                                     showlegend=False
                                 ))
 
-                            # Layout für Symbol 2 Chart ohne Schieberegler
+                            
                             fig_symbol2.update_layout(
                                 title=f"{symbol2} Trades Timeline",
                                 xaxis=dict(
@@ -628,7 +626,7 @@ def render(api_client: APIClient, config: Config):
                                 plot_bgcolor='rgba(255,255,255,1)'
                             )
 
-                            # Aktiviere Zoom/Pan-Werkzeuge mit besser positioniertem Button
+                            
                             fig_symbol2.update_layout(
                                 updatemenus=[
                                     dict(
@@ -652,7 +650,7 @@ def render(api_client: APIClient, config: Config):
                             st.plotly_chart(fig_symbol2, use_container_width=True)
 
 
-                            # Zeige Trade-Tabelle
+                            
                             st.subheader("Trades Details")
                             trades_display = all_trades.copy()
                             trades_display['entry_date'] = trades_display['entry_date'].dt.strftime('%Y-%m-%d')

@@ -1,7 +1,6 @@
 from typing import Dict, Any, Optional, List
 from api import APIClient
 
-
 class Config:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client

@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 from api import APIClient
 from config import Config
 
-
 def render(api_client: APIClient, config: Config):
     st.header("Symbol Analysis")
 
@@ -23,8 +22,7 @@ def render(api_client: APIClient, config: Config):
     if not symbols:
         st.warning("No symbols available for this market")
         return
-
-    # Symbol selection
+    
     selected_symbol = st.selectbox(
         "Select Symbol",
         symbols,
@@ -40,11 +38,10 @@ def render(api_client: APIClient, config: Config):
     with col1:
         st.subheader("Price History")
 
-        # Get timeseries data
         symbol_data = api_client.get_timeseries(market, selected_symbol)
 
         if symbol_data:
-            # Create dataframe
+            
             df = pd.DataFrame([
                 {
                     'date': date,
@@ -60,8 +57,7 @@ def render(api_client: APIClient, config: Config):
             if not df.empty:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
-
-                # Plot price history
+ 
                 fig = go.Figure()
 
                 fig.add_trace(go.Scatter(
@@ -78,8 +74,7 @@ def render(api_client: APIClient, config: Config):
                     height=400
                 )
                 st.plotly_chart(fig, use_container_width=True, key="price_history_chart")
-
-                # Price statistics
+          
                 if len(df) > 0:
                     col_a, col_b, col_c = st.columns(3)
                     col_a.metric("Current Price", f"${df['close'].iloc[-1]:.2f}")
@@ -96,21 +91,20 @@ def render(api_client: APIClient, config: Config):
 
     with col2:
         st.subheader("Symbol Trades")
-
-        # Get trades data
+   
         symbol_trades = api_client.get_symbol_trades(market, selected_symbol, strategy)
 
         if symbol_trades:
-            # Convert to dataframe
+            
             trades_df = pd.DataFrame(symbol_trades)
 
             if not trades_df.empty:
-                # Format dates
+                
                 for date_col in ['entry_date', 'exit_date']:
                     if date_col in trades_df.columns:
                         trades_df[date_col] = pd.to_datetime(trades_df[date_col])
 
-                # Display metrics
+                
                 total_trades = len(trades_df)
                 profitable_trades = len(trades_df[trades_df['performance'] > 0])
                 win_rate = profitable_trades / total_trades if total_trades > 0 else 0
@@ -118,7 +112,7 @@ def render(api_client: APIClient, config: Config):
                 st.metric("Total Trades", total_trades)
                 st.metric("Win Rate", f"{win_rate:.2%}")
 
-                # Performance data
+                
                 symbol_performance = api_client.get_symbol_performance(
                     market,
                     selected_symbol,
@@ -144,15 +138,14 @@ def render(api_client: APIClient, config: Config):
                         ]
                     })
                     st.dataframe(metrics_df, hide_index=True, use_container_width=True)
-
-                # Show trades table
+          
                 st.subheader("Recent Trades")
                 display_cols = ['entry_date', 'exit_date', 'position_type', 'entry_price',
                                 'exit_price', 'performance', 'exit_type']
                 display_df = trades_df[display_cols].copy() if all(
                     col in trades_df.columns for col in display_cols) else trades_df
 
-                # Format performance as percentage
+                
                 if 'performance' in display_df.columns:
                     display_df['performance'] = display_df['performance'].apply(lambda x: f"{x:.2%}")
 
@@ -166,7 +159,7 @@ def render(api_client: APIClient, config: Config):
         else:
             st.info("No trades data available")
 
-    # Trade performance over time
+    
     if 'symbol_trades' in locals() and symbol_trades:
         st.subheader("Trade Performance Over Time")
 
@@ -188,7 +181,7 @@ def render(api_client: APIClient, config: Config):
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True, key="trade_performance_chart")
 
-            # Cumulative performance
+            
             if len(trades_df) > 0:
                 trades_df['cum_performance'] = trades_df['performance'].cumsum()
 

@@ -13,7 +13,6 @@ st.set_page_config(
 if not os.path.exists("tabs"):
     os.makedirs("tabs")
 
-
 def main():
     st.title("Stock Trading Analysis")
 
@@ -74,7 +73,6 @@ def main():
             strategy_comparison.render(api_client, config)
     else:
         st.info("Please select a market and strategy to continue")
-
 
 if __name__ == "__main__":
     main()

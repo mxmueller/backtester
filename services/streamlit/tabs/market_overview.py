@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 from api import APIClient
 from config import Config
 
-
 def render(api_client: APIClient, config: Config):
     st.header("Market Overview")
 

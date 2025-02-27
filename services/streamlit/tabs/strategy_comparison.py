@@ -14,8 +14,7 @@ def render(api_client: APIClient, config: Config):
     if not market:
         st.warning("Market must be selected")
         return
-
-    # Get all strategies for the market
+    
     strategies_data = api_client.get_market_strategies(market)
 
     if not strategies_data or "strategies" not in strategies_data or not strategies_data["strategies"]:
@@ -25,7 +24,7 @@ def render(api_client: APIClient, config: Config):
     strategies = strategies_data["strategies"]
     strategy_options = [s["version"] for s in strategies]
 
-    # Select strategies to compare
+    
     selected_strategies = st.multiselect(
         "Select Strategies to Compare",
         options=strategy_options,
@@ -52,8 +51,7 @@ def render(api_client: APIClient, config: Config):
         if not performance_data:
             st.warning("Failed to fetch performance data for selected strategies")
             return
-
-        # Create comparison metrics table
+        
         metrics = []
         for strategy, perf in performance_data.items():
             metrics.append({
@@ -69,7 +67,7 @@ def render(api_client: APIClient, config: Config):
         metrics_df = pd.DataFrame(metrics)
         st.dataframe(metrics_df, hide_index=True, use_container_width=True)
 
-        # Create bar chart for key metrics
+        
         key_metrics = ["Total Return", "Sharpe Ratio", "Max Drawdown", "Win Rate"]
         chart_data = []
 
@@ -97,14 +95,14 @@ def render(api_client: APIClient, config: Config):
 
         chart_df = pd.DataFrame(chart_data)
 
-        # Create grouped bar chart
+        
         for metric in key_metrics:
             metric_df = chart_df[chart_df["Metric"] == metric]
 
             if not metric_df.empty:
                 title = f"Comparison by {metric}"
                 if metric == "Max Drawdown":
-                    # Invert drawdown values for better visualization (more negative is worse)
+                    
                     metric_df = metric_df.copy()
                     metric_df.loc[:, "Value"] = -metric_df["Value"]
                     title += " (Inverted - Lower is Better)"
@@ -139,8 +137,7 @@ def render(api_client: APIClient, config: Config):
         if not timeseries_data:
             st.warning("Failed to fetch timeseries data for selected strategies")
             return
-
-        # Plot equity curves
+        
         fig = go.Figure()
 
         for strategy, ts_df in timeseries_data.items():
@@ -169,7 +166,7 @@ def render(api_client: APIClient, config: Config):
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Normalized equity curves (percentage change)
+        
         fig_norm = go.Figure()
 
         for strategy, ts_df in timeseries_data.items():
@@ -212,7 +209,7 @@ def render(api_client: APIClient, config: Config):
             st.warning("Insufficient data to calculate returns distribution")
             return
 
-        # Plot daily returns histogram
+        
         fig = go.Figure()
 
         for strategy, returns in daily_returns.items():
@@ -233,7 +230,7 @@ def render(api_client: APIClient, config: Config):
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Statistics
+        
         stats = []
         for strategy, returns in daily_returns.items():
             stats.append({
@@ -256,27 +253,27 @@ def render(api_client: APIClient, config: Config):
 
         for strategy, ts_df in timeseries_data.items():
             if "total_capital" in ts_df.columns and len(ts_df) > 0:
-                # Calculate running maximum
+                
                 running_max = ts_df["total_capital"].cummax()
 
-                # Calculate drawdown series
+                
                 drawdown = (ts_df["total_capital"] - running_max) / running_max
                 drawdown_series[strategy] = drawdown
 
-                # Get maximum drawdown
+                
                 max_drawdowns[strategy] = drawdown.min()
 
         if not drawdown_series:
             st.warning("Insufficient data to calculate drawdowns")
             return
 
-        # Plot drawdown series
+        
         fig = go.Figure()
 
         for strategy, drawdown in drawdown_series.items():
             fig.add_trace(go.Scatter(
                 x=drawdown.index,
-                y=drawdown * 100,  # Convert to percentage
+                y=drawdown * 100,  
                 mode="lines",
                 name=strategy
             ))
@@ -288,11 +285,11 @@ def render(api_client: APIClient, config: Config):
             height=500
         )
 
-        fig.update_yaxes(autorange="reversed")  # Invert y-axis for better visualization
+        fig.update_yaxes(autorange="reversed")  
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Max drawdowns comparison
+        
         drawdown_data = [{"Strategy": s, "Max Drawdown": d * 100} for s, d in max_drawdowns.items()]
         drawdown_df = pd.DataFrame(drawdown_data)
 
@@ -305,14 +302,14 @@ def render(api_client: APIClient, config: Config):
         )
 
         fig_bar.update_layout(height=400)
-        fig_bar.update_yaxes(autorange="reversed")  # Invert y-axis for better visualization
+        fig_bar.update_yaxes(autorange="reversed")  
 
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with tabs[4]:
         st.subheader("Pair Analysis Across Strategies")
 
-        # Sammle die verfügbaren Windows aus allen Strategien
+        
         windows_by_strategy = {}
         all_windows = set()
 
@@ -327,7 +324,7 @@ def render(api_client: APIClient, config: Config):
             st.warning("No trading windows available for the selected strategies")
             return
 
-        # Wähle ein Window für den Vergleich
+        
         selected_window = st.selectbox(
             "Select Trading Window for Comparison",
             sorted(list(all_windows)),
@@ -339,7 +336,7 @@ def render(api_client: APIClient, config: Config):
             st.info("Please select a trading window")
             return
 
-        # Sammle die Paardaten für jede Strategie im ausgewählten Window
+        
         pairs_data_by_strategy = {}
         all_pairs = set()
 
@@ -371,7 +368,7 @@ def render(api_client: APIClient, config: Config):
             st.warning("No pairs data available for the selected window and strategies")
             return
 
-        # Erstelle einen Dataframe für den Vergleich
+        
         comparison_data = []
 
         for pair in sorted(all_pairs):
@@ -387,10 +384,10 @@ def render(api_client: APIClient, config: Config):
 
         comparison_df = pd.DataFrame(comparison_data)
 
-        # Zeige die Vergleichstabelle
+        
         st.subheader(f"Pairs Comparison for Window {selected_window}")
 
-        # Filtere Zeilen, bei denen alle Strategien 0 Trades haben
+        
         if len(selected_strategies) > 0:
             trade_cols = [f"{strategy} (trades)" for strategy in selected_strategies]
             has_trades = comparison_df[trade_cols].sum(axis=1) > 0
@@ -405,17 +402,13 @@ def render(api_client: APIClient, config: Config):
             key="strategy_pairs_comparison_table"
         )
 
-        # Füge diesen Code am Ende des "Pair Analysis Across Strategies" Tab-Bereichs ein
-        # oder ersetze den bestehenden "Pair Performance Comparison" Abschnitt
-
         st.subheader("Common Pairs Analysis")
-
-        # Finde gemeinsame Paare über alle Strategien hinweg
+    
         common_pairs_across_strategies = set()
         if len(selected_strategies) > 0 and all(strategy in pairs_data_by_strategy for strategy in selected_strategies):
-            # Initialisiere mit Paaren der ersten Strategie
+            
             common_pairs_across_strategies = set(pairs_data_by_strategy[selected_strategies[0]].keys())
-            # Schnittmenge mit allen anderen Strategien bilden
+            
             for strategy in selected_strategies[1:]:
                 common_pairs_across_strategies = common_pairs_across_strategies.intersection(
                     set(pairs_data_by_strategy[strategy].keys())
@@ -423,21 +416,19 @@ def render(api_client: APIClient, config: Config):
 
         if common_pairs_across_strategies:
             st.write(f"Found {len(common_pairs_across_strategies)} pairs that appear in all selected strategies")
-
-            # Erstelle eine Tabelle mit den gemeinsamen Paaren und deren Performance-Metriken
+         
             common_pairs_data = []
 
             for pair in sorted(common_pairs_across_strategies):
                 pair_str = f"{pair[0]} - {pair[1]}"
                 pair_row = {"Pair": pair_str}
 
-                # Sammle Handelsdaten für jede Strategie
+                
                 for strategy in selected_strategies:
                     pair_row[f"{strategy} (trades)"] = pairs_data_by_strategy[strategy][pair]["trades"]
 
                 common_pairs_data.append(pair_row)
-
-            # Zeige die gemeinsamen Paare an
+        
             common_pairs_df = pd.DataFrame(common_pairs_data)
             st.dataframe(
                 common_pairs_df,
@@ -445,8 +436,7 @@ def render(api_client: APIClient, config: Config):
                 hide_index=True,
                 key="common_pairs_table"
             )
-
-            # Möglichkeit, ein gemeinsames Paar für detaillierte Analyse auszuwählen
+         
             if common_pairs_data:
                 selected_common_pair = st.selectbox(
                     "Select a common pair for detailed analysis",
@@ -459,8 +449,7 @@ def render(api_client: APIClient, config: Config):
                     pair_symbols = selected_common_pair.split(" - ")
                     if len(pair_symbols) == 2:
                         symbol1, symbol2 = pair_symbols
-
-                        # Sammle Performance-Daten für alle Strategien
+               
                         detailed_perf = []
 
                         for strategy in selected_strategies:
@@ -476,7 +465,7 @@ def render(api_client: APIClient, config: Config):
                             if pair_perf and "net_performance" in pair_perf:
                                 net_perf = pair_perf["net_performance"]
 
-                                # Sammle und strukturiere die Daten
+                                
                                 perf_metrics = {
                                     "Strategy": strategy,
                                     "Total Return": net_perf.get("total_performance", 0),
@@ -485,17 +474,16 @@ def render(api_client: APIClient, config: Config):
                                     "Avg Trade Return": net_perf.get("avg_performance", 0)
                                 }
 
-                                # Füge auch Trades-Anzahl aus pairs_data hinzu
+                                
                                 if strategy in pairs_data_by_strategy and pair in pairs_data_by_strategy[strategy]:
                                     perf_metrics["Trades in Window"] = pairs_data_by_strategy[strategy][pair]["trades"]
 
                                 detailed_perf.append(perf_metrics)
 
                         if detailed_perf:
-                            # Konvertiere zu DataFrame für einfachere Visualisierung
+                            
                             detailed_df = pd.DataFrame(detailed_perf)
-
-                            # Visualisiere die wichtigsten Metriken für jede Strategie
+                         
                             for metric in ["Total Return", "Win Rate", "Avg Trade Return"]:
                                 fig = px.bar(
                                     detailed_df,
@@ -505,13 +493,12 @@ def render(api_client: APIClient, config: Config):
                                     color="Strategy"
                                 )
 
-                                # Formatiere y-Achse als Prozent für bestimmte Metriken
+                                
                                 if metric in ["Total Return", "Win Rate", "Avg Trade Return"]:
                                     fig.update_layout(yaxis_tickformat=".1%")
 
                                 st.plotly_chart(fig, use_container_width=True)
-
-                            # Zeige auch eine Tabelle mit allen Metriken
+                        
                             display_df = detailed_df.copy()
                             for col in ["Total Return", "Win Rate", "Avg Trade Return"]:
                                 display_df[col] = display_df[col].apply(lambda x: f"{x:.2%}")
@@ -537,7 +524,7 @@ def render(api_client: APIClient, config: Config):
                                         trading_params=trading_params
                                     )
                                     if pair_perf and "net_performance" in pair_perf:
-                                        # Stelle sicher, dass alle Werte in "Value" den gleichen Typ haben (float)
+                                        
                                         max_metrics.append({
                                             "Strategy": strategy,
                                             "Metric": "Max Gain",
@@ -547,7 +534,7 @@ def render(api_client: APIClient, config: Config):
                                             "Strategy": strategy,
                                             "Metric": "Max Loss",
                                             "Value": float(abs(pair_perf["net_performance"].get("max_loss", 0)))
-                                            # Absolute value for better visualization
+                                            
                                         })
 
                                 if max_metrics:
@@ -567,7 +554,7 @@ def render(api_client: APIClient, config: Config):
         else:
             st.info("No common pairs found across all selected strategies")
 
-            # Optional: Anzeigen von Paaren, die in mindestens X Strategien vorkommen
+            
             if len(selected_strategies) > 1:
                 min_strategies = st.slider(
                     "Show pairs appearing in at least X strategies",
@@ -575,8 +562,7 @@ def render(api_client: APIClient, config: Config):
                     max_value=len(selected_strategies),
                     value=2
                 )
-
-                # Zähle für jedes Paar, in wie vielen Strategien es vorkommt
+          
                 pair_strategy_count = {}
                 all_pairs_set = set()
 
@@ -587,13 +573,13 @@ def render(api_client: APIClient, config: Config):
                             pair_strategy_count[pair] = 0
                         pair_strategy_count[pair] += 1
 
-                # Filtere Paare, die in mindestens min_strategies Strategien vorkommen
+                
                 filtered_pairs = [pair for pair, count in pair_strategy_count.items() if count >= min_strategies]
 
                 if filtered_pairs:
                     st.write(f"Found {len(filtered_pairs)} pairs that appear in at least {min_strategies} strategies")
 
-                    # Erstelle Daten für diese Paare
+                    
                     filtered_data = []
                     for pair in sorted(filtered_pairs):
                         pair_str = f"{pair[0]} - {pair[1]}"
@@ -602,7 +588,7 @@ def render(api_client: APIClient, config: Config):
                             "Strategies": pair_strategy_count[pair]
                         }
 
-                        # Füge Spalten für jede Strategie hinzu
+                        
                         for strategy in selected_strategies:
                             if strategy in pairs_data_by_strategy and pair in pairs_data_by_strategy[strategy]:
                                 pair_row[f"{strategy} (trades)"] = pairs_data_by_strategy[strategy][pair]["trades"]
@@ -619,7 +605,7 @@ def render(api_client: APIClient, config: Config):
                         key="filtered_pairs_table"
                     )
 
-        # Zeige Statistiken zu gemeinsamen und einzigartigen Paaren
+        
         st.subheader("Pair Distribution Statistics")
 
         strategy_unique_pairs = {}
@@ -635,7 +621,7 @@ def render(api_client: APIClient, config: Config):
                 else:
                     common_pairs = common_pairs.intersection(strategy_pairs)
 
-        # Einzigartige Paare pro Strategie
+        
         unique_counts = {}
         for strategy in selected_strategies:
             if strategy in strategy_unique_pairs:
@@ -644,7 +630,6 @@ def render(api_client: APIClient, config: Config):
                 )
                 unique_counts[strategy] = len(unique_to_strategy)
 
-        # Erstelle einen Dataframe für die Statistik
         stats_data = []
 
         for strategy in selected_strategies:
@@ -668,11 +653,10 @@ def render(api_client: APIClient, config: Config):
             key="strategy_pairs_stats_table"
         )
 
-        # Visualisierung der Paar-Überlappung
         if len(selected_strategies) > 1:
             st.subheader("Pair Overlap Analysis")
 
-            # Venn-Diagramm-ähnliche Darstellung
+            
             overlap_data = []
             for i, strategy1 in enumerate(selected_strategies):
                 if strategy1 not in strategy_unique_pairs:
@@ -704,7 +688,7 @@ def render(api_client: APIClient, config: Config):
                     key="pair_overlap_table"
                 )
 
-                # Visualisiere die Top-Paare
+                
                 st.subheader("Top Pairs by Strategy")
 
                 for strategy in selected_strategies:
@@ -733,11 +717,9 @@ def render(api_client: APIClient, config: Config):
                                 height=400
                             )
                             st.plotly_chart(fig, use_container_width=True)
-
-        # Detaillierte Paar-Performance-Vergleich
+     
         st.subheader("Pair Performance Comparison")
 
-        # Wähle ein Paar für den Vergleich
         pair_options = sorted([f"{p[0]} - {p[1]}" for p in all_pairs])
         if pair_options:
             selected_pair = st.selectbox(
@@ -751,7 +733,7 @@ def render(api_client: APIClient, config: Config):
                 if len(pair_symbols) == 2:
                     symbol1, symbol2 = pair_symbols
 
-                    # Sammle Performance-Daten für dieses Paar über alle Strategien
+                    
                     performance_data = []
 
                     for strategy in selected_strategies:
@@ -782,19 +764,18 @@ def render(api_client: APIClient, config: Config):
                     if performance_data:
                         perf_df = pd.DataFrame(performance_data)
 
-                        # Formatiere Prozentsätze
+                        
                         for col in ["Total Return", "Avg Return", "Win Rate", "Max Gain", "Max Loss"]:
                             perf_df[col] = perf_df[col].apply(lambda x: f"{x:.2%}")
 
-                        # Zeige die Vergleichstabelle
+                        
                         st.dataframe(
                             perf_df,
                             use_container_width=True,
                             hide_index=True,
                             key="pair_performance_table"
                         )
-
-                        # Visualisiere die Performance-Metriken
+                      
                         fig = go.Figure()
 
                         for strategy in perf_df["Strategy"]:
@@ -803,8 +784,8 @@ def render(api_client: APIClient, config: Config):
 
                             if strategy_perf:
                                 metrics_to_plot = {
-                                    "Total Return": strategy_perf["Total Return"],  # Bereits ein Float-Wert
-                                    "Win Rate": strategy_perf["Win Rate"],  # Bereits ein Float-Wert
+                                    "Total Return": strategy_perf["Total Return"],  
+                                    "Win Rate": strategy_perf["Win Rate"],  
                                     "Sharpe Ratio": strategy_perf["Sharpe Ratio"] / 5 if not pd.isna(
                                         strategy_perf["Sharpe Ratio"]) else 0
                                 }

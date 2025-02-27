@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 from api import APIClient
 from config import Config
 
-
 def render(api_client: APIClient, config: Config):
     st.header("Strategy Performance")
 
@@ -17,8 +16,7 @@ def render(api_client: APIClient, config: Config):
     if not market or not strategy:
         st.warning("Market and strategy must be selected")
         return
-
-    # Get performance data
+ 
     performance_data = api_client.get_trades_performance(market, strategy, trading_params)
     timeseries_data = api_client.get_trades_performance_timeseries(market, strategy, trading_params)
 
@@ -34,7 +32,7 @@ def render(api_client: APIClient, config: Config):
                 ts_df.index = pd.to_datetime(ts_df.index)
                 ts_df = ts_df.sort_index()
 
-                # Portfolio equity curve
+                
                 fig = go.Figure()
 
                 fig.add_trace(go.Scatter(
@@ -59,8 +57,7 @@ def render(api_client: APIClient, config: Config):
                     height=350
                 )
                 st.plotly_chart(fig, use_container_width=True)
-
-                # Daily P&L
+                
                 fig_pnl = go.Figure()
 
                 fig_pnl.add_trace(go.Bar(
@@ -77,8 +74,7 @@ def render(api_client: APIClient, config: Config):
                     height=250
                 )
                 st.plotly_chart(fig_pnl, use_container_width=True)
-
-                # Cumulative metrics
+                
                 col_a, col_b, col_c = st.columns(3)
 
                 with col_a:
@@ -96,7 +92,7 @@ def render(api_client: APIClient, config: Config):
                         final_pct = ts_df['performance_pct'].iloc[-1] * 100
                         st.metric("Total Return", f"{final_pct:.2f}%")
 
-                # Active positions over time
+                
                 if 'active_positions' in ts_df.columns:
                     fig_pos = px.line(
                         ts_df,
@@ -116,8 +112,7 @@ def render(api_client: APIClient, config: Config):
 
         if performance_data and 'performance' in performance_data:
             perf = performance_data['performance']
-
-            # Main metrics
+     
             metrics_cols = st.columns(2)
 
             with metrics_cols[0]:
@@ -140,8 +135,7 @@ def render(api_client: APIClient, config: Config):
                     st.metric("Sharpe Ratio", f"{perf['sharpe_ratio']:.2f}")
                 if 'max_drawdown' in perf:
                     st.metric("Max Drawdown", f"{perf['max_drawdown'] * 100:.2f}%")
-
-            # Detailed metrics tabs
+         
             metrics_tabs = st.tabs(["Performance", "Costs", "Portfolio"])
 
             with metrics_tabs[0]:
