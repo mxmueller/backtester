@@ -11,7 +11,6 @@ app = FastAPI(
     description="API for retrieving stock data and trading strategies",
     version="1.0.0",
     openapi_tags=[
-        {"name": "General", "description": "Basic endpoints"},
         {"name": "Markets", "description": "Market operations"},
         {"name": "Strategies", "description": "Strategy operations"},
         {"name": "Symbols", "description": "Symbol operations"},
