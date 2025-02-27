@@ -84,3 +84,7 @@ coverage.xml
 .pytest_cache/
 cover/
 >>>>>>> Stashed changes
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/misc.xml
+.idea/vcs.xml
+.idea/workspace.xml
