@@ -3,7 +3,7 @@ import json
 from typing import Dict, Any, Optional, List, Union
 
 class APIClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8000"):
+    def __init__(self, base_url: str = "http://analytics:8000"):
         self.base_url = base_url
 
     def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:

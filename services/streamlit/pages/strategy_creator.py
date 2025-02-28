@@ -29,7 +29,7 @@ st.title("Strategy Creator")
 api_client = APIClient()
 config = Config(api_client)
 
-notebook_runner_url = "http://localhost:8080"  # Ändern zu localhost für lokale Entwicklung
+notebook_runner_url = "http://notebook_runner:8080"
 
 jobs_container = None
 
