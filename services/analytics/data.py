@@ -1,6 +1,7 @@
 import pandas as pd
 import pyarrow.parquet as pq
 import io
+import os
 from minio import Minio
 from typing import Dict, Any, List, Optional
 from config import minio_config, markets, get_market_path, get_strategies_path
@@ -9,7 +10,7 @@ from config import minio_config, markets, get_market_path, get_strategies_path
 class MinioClient:
     def __init__(self):
         self.client = Minio(
-            minio_config["endpoint"],
+            "minio:9000",
             access_key=minio_config["access_key"],
             secret_key=minio_config["secret_key"],
             secure=minio_config["secure"]

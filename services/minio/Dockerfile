@@ -4,16 +4,11 @@ RUN curl -O https://dl.min.io/client/mc/release/linux-amd64/mc && \
     chmod +x mc && \
     mv mc /usr/local/bin/
 
+RUN curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/bin/yq && \
+    chmod +x /usr/bin/yq
+
 COPY setup.sh /setup.sh
 RUN chmod +x /setup.sh
-
-COPY ftse_daily.parquet /ftse_daily.parquet
-COPY nasdaq_daily.parquet /nasdaq_daily.parquet
-COPY ftse_trades2.parquet /ftse_trades2.parquet
-COPY ftse_trades.parquet /ftse_trades.parquet
-
-ENV MINIO_ROOT_USER=minioadmin
-ENV MINIO_ROOT_PASSWORD=minioadmin
 
 EXPOSE 9000 9001
 

@@ -1,10 +1,19 @@
+import os
+import yaml
 from fastapi import HTTPException
 from typing import Dict, Optional
 
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', 'config.yaml')
+if os.path.exists('/app/config.yaml'):
+    config_path = '/app/config.yaml'
+
+with open(config_path, 'r') as file:
+    yaml_config = yaml.safe_load(file)
+
 minio_config = {
-    "endpoint": "localhost:9000",
-    "access_key": "minioadmin",
-    "secret_key": "minioadmin",
+    "endpoint": "minio:9000",
+    "access_key": yaml_config['minio']['user'],
+    "secret_key": yaml_config['minio']['password'],
     "secure": False
 }
 
