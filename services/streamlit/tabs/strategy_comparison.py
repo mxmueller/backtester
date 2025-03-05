@@ -555,13 +555,15 @@ def render(api_client: APIClient, config: Config):
             st.info("No common pairs found across all selected strategies")
 
             
-            if len(selected_strategies) > 1:
+            if len(selected_strategies) > 2:
                 min_strategies = st.slider(
                     "Show pairs appearing in at least X strategies",
                     min_value=2,
                     max_value=len(selected_strategies),
                     value=2
                 )
+            elif len(selected_strategies) == 2:
+                min_strategies = 2
           
                 pair_strategy_count = {}
                 all_pairs_set = set()
