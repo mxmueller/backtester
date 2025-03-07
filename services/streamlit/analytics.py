@@ -13,6 +13,7 @@ st.set_page_config(
 if not os.path.exists("tabs"):
     os.makedirs("tabs")
 
+
 def main():
     st.title("Stock Trading Analysis")
 
@@ -33,12 +34,52 @@ def main():
             st.error("No strategies available for selected market")
 
         st.subheader("Trading Parameters")
-        initial_capital = st.number_input("Initial Capital", min_value=1000.0, value=100000.0, step=1000.0)
-        position_size_percent = st.slider("Position Size (%)", min_value=0.1, max_value=10.0, value=1.0, step=0.1) / 100
-        fixed_commission = st.number_input("Fixed Commission", min_value=0.0, value=1.0, step=0.1)
-        variable_fee = st.number_input("Variable Fee (%)", min_value=0.0, value=0.018, step=0.001, format="%.3f") / 100
-        bid_ask_spread = st.number_input("Bid-Ask Spread (%)", min_value=0.0, value=0.1, step=0.01) / 100
-        risk_free_rate = st.number_input("Risk-Free Rate (%)", min_value=0.0, value=0.0, step=0.1) / 100
+        initial_capital = st.number_input(
+            "Initial Capital",
+            min_value=1000.0,
+            value=100000.0,
+            step=1000.0,
+            help="Starting capital for the trading strategy simulation"
+        )
+        position_size_percent = st.slider(
+            "Position Size (%)",
+            min_value=0.1,
+            max_value=10.0,
+            value=1.0,
+            step=0.1,
+            help="Percentage of capital allocated to each position"
+        ) / 100
+
+        with st.expander("Trading Costs", expanded=False):
+            fixed_commission = st.number_input(
+                "Fixed Commission",
+                min_value=0.0,
+                value=1.0,
+                step=0.1,
+                help="Fixed fee charged per trade regardless of size"
+            )
+            variable_fee = st.number_input(
+                "Variable Fee (%)",
+                min_value=0.0,
+                value=0.018,
+                step=0.001,
+                format="%.3f",
+                help="Percentage-based fee charged on trade value"
+            ) / 100
+            bid_ask_spread = st.number_input(
+                "Bid-Ask Spread (%)",
+                min_value=0.0,
+                value=0.1,
+                step=0.01,
+                help="Difference between buy and sell prices as percentage"
+            ) / 100
+            risk_free_rate = st.number_input(
+                "Risk-Free Rate (%)",
+                min_value=0.0,
+                value=0.0,
+                step=0.1,
+                help="Interest rate of a risk-free investment (e.g. treasury bonds) used as benchmark for calculating risk-adjusted returns and Sharpe ratio"
+            ) / 100
 
         trading_params = {
             "initial_capital": initial_capital,
@@ -73,6 +114,7 @@ def main():
             strategy_comparison.render(api_client, config)
     else:
         st.info("Please select a market and strategy to continue")
+
 
 if __name__ == "__main__":
     main()

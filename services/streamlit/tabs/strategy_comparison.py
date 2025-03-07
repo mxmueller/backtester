@@ -166,36 +166,6 @@ def render(api_client: APIClient, config: Config):
 
         st.plotly_chart(fig, use_container_width=True)
 
-        
-        fig_norm = go.Figure()
-
-        for strategy, ts_df in timeseries_data.items():
-            if "total_capital" in ts_df.columns and len(ts_df) > 0:
-                initial_capital = ts_df["total_capital"].iloc[0]
-                normalized = (ts_df["total_capital"] / initial_capital - 1) * 100
-
-                fig_norm.add_trace(go.Scatter(
-                    x=ts_df.index,
-                    y=normalized,
-                    mode="lines",
-                    name=strategy
-                ))
-
-        fig_norm.update_layout(
-            title="Normalized Equity Curves (% Change)",
-            xaxis_title="Date",
-            yaxis_title="Return (%)",
-            height=500
-        )
-
-        fig_norm.add_hline(
-            y=0,
-            line_dash="dash",
-            line_color="red"
-        )
-
-        st.plotly_chart(fig_norm, use_container_width=True)
-
     with tabs[2]:
         st.subheader("Returns Distribution")
 
@@ -719,105 +689,7 @@ def render(api_client: APIClient, config: Config):
                                 height=400
                             )
                             st.plotly_chart(fig, use_container_width=True)
-     
-        st.subheader("Pair Performance Comparison")
 
-        pair_options = sorted([f"{p[0]} - {p[1]}" for p in all_pairs])
-        if pair_options:
-            selected_pair = st.selectbox(
-                "Select Pair to Compare Performance",
-                pair_options,
-                key="strategy_pair_selector"
-            )
-
-            if selected_pair:
-                pair_symbols = selected_pair.split(" - ")
-                if len(pair_symbols) == 2:
-                    symbol1, symbol2 = pair_symbols
-
-                    
-                    performance_data = []
-
-                    for strategy in selected_strategies:
-                        pair_perf = api_client.get_pair_performance(
-                            market,
-                            symbol1,
-                            symbol2,
-                            strategy,
-                            window=selected_window,
-                            trading_params=trading_params
-                        )
-
-                        if pair_perf and "net_performance" in pair_perf:
-                            net_perf = pair_perf["net_performance"]
-                            sharpe = pair_perf.get("sharpe_ratio")
-
-                            performance_data.append({
-                                "Strategy": strategy,
-                                "Total Return": net_perf.get("total_performance", 0),
-                                "Avg Return": net_perf.get("avg_performance", 0),
-                                "Win Rate": net_perf.get("win_rate", 0),
-                                "Max Gain": net_perf.get("max_gain", 0),
-                                "Max Loss": net_perf.get("max_loss", 0),
-                                "Total Trades": net_perf.get("total_trades", 0),
-                                "Sharpe Ratio": sharpe if sharpe is not None else float('nan')
-                            })
-
-                    if performance_data:
-                        perf_df = pd.DataFrame(performance_data)
-
-                        
-                        for col in ["Total Return", "Avg Return", "Win Rate", "Max Gain", "Max Loss"]:
-                            perf_df[col] = perf_df[col].apply(lambda x: f"{x:.2%}")
-
-                        
-                        st.dataframe(
-                            perf_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            key="pair_performance_table"
-                        )
-                      
-                        fig = go.Figure()
-
-                        for strategy in perf_df["Strategy"]:
-                            strategy_perf = next((item for item in performance_data if item["Strategy"] == strategy),
-                                                 None)
-
-                            if strategy_perf:
-                                metrics_to_plot = {
-                                    "Total Return": strategy_perf["Total Return"],  
-                                    "Win Rate": strategy_perf["Win Rate"],  
-                                    "Sharpe Ratio": strategy_perf["Sharpe Ratio"] / 5 if not pd.isna(
-                                        strategy_perf["Sharpe Ratio"]) else 0
-                                }
-
-                            fig.add_trace(go.Scatterpolar(
-                                r=list(metrics_to_plot.values()),
-                                theta=list(metrics_to_plot.keys()),
-                                fill='toself',
-                                name=strategy
-                            ))
-
-                        fig.update_layout(
-                            polar=dict(
-                                radialaxis=dict(
-                                    visible=True,
-                                    range=[0, max([
-                                        max([float(v.strip("%")) / 100 for v in perf_df["Total Return"]]),
-                                        max([float(v.strip("%")) / 100 for v in perf_df["Win Rate"]]),
-                                        max([p["Sharpe Ratio"] / 5 for p in performance_data if
-                                             not pd.isna(p["Sharpe Ratio"])])
-                                    ])]
-                                )
-                            ),
-                            title=f"Performance Comparison for {selected_pair}",
-                            height=500
-                        )
-
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.info(f"No performance data available for pair {selected_pair}")
             else:
                 st.info("Please select a pair to compare performance")
         else:

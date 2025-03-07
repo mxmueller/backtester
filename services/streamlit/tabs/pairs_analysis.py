@@ -206,7 +206,7 @@ def render(api_client: APIClient, config: Config):
 
     
     if 'symbol1' in locals() and 'symbol2' in locals() and symbol1 and symbol2:
-        st.subheader("Pair Price Comparison")
+        #st.subheader("Pair Price Comparison")
 
         symbol1_data = api_client.get_timeseries(market, symbol1)
         symbol2_data = api_client.get_timeseries(market, symbol2)
@@ -278,19 +278,19 @@ def render(api_client: APIClient, config: Config):
                 yaxis_title="Normalized Price (100 = start)",
                 height=500
             )
-            st.plotly_chart(fig, use_container_width=True, key="pairs_comparison_chart")
+            #st.plotly_chart(fig, use_container_width=True, key="pairs_comparison_chart")
 
             
             if 'spread' in pivot_df.columns:
                 col_a, col_b, col_c = st.columns(3)
 
-                col_a.metric("Mean Spread", f"{pivot_df['spread'].mean():.2f}")
-                col_b.metric("Max Spread", f"{pivot_df['spread'].max():.2f}")
-                col_c.metric("Min Spread", f"{pivot_df['spread'].min():.2f}")
+                #col_a.metric("Mean Spread", f"{pivot_df['spread'].mean():.2f}")
+                #col_b.metric("Max Spread", f"{pivot_df['spread'].max():.2f}")
+                #col_c.metric("Min Spread", f"{pivot_df['spread'].min():.2f}")
 
                 
                 correlation = pivot_df[[symbol1, symbol2]].corr().iloc[0, 1]
-                st.metric("Price Correlation", f"{correlation:.4f}")
+                #st.metric("Price Correlation", f"{correlation:.4f}")
 
                 
                 fig_hist = px.histogram(
@@ -301,7 +301,7 @@ def render(api_client: APIClient, config: Config):
                 )
                 fig_hist.add_vline(x=0, line_dash="dash", line_color="red")
                 fig_hist.update_layout(height=300)
-                st.plotly_chart(fig_hist, use_container_width=True, key="spread_distribution_chart")
+                #st.plotly_chart(fig_hist, use_container_width=True, key="spread_distribution_chart")
         else:
             st.warning("Could not fetch price data for both symbols")
 
