@@ -5,6 +5,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from api import APIClient
 from config import Config
+import io
+from datetime import datetime
 
 
 def render(api_client: APIClient, config: Config):
@@ -37,7 +39,7 @@ def render(api_client: APIClient, config: Config):
 
     trading_params = config.get_trading_params()
 
-    tabs = st.tabs(["Performance Metrics", "Equity Curves", "Returns Distribution", "Drawdowns", "Pair Analysis"])
+    tabs = st.tabs(["Performance Metrics", "Equity Curves", "Returns Distribution", "Drawdowns", "Pair Analysis", "Export"])
 
     with tabs[0]:
         st.subheader("Performance Comparison")
@@ -694,3 +696,376 @@ def render(api_client: APIClient, config: Config):
                 st.info("Please select a pair to compare performance")
         else:
             st.info("No pairs available for comparison")
+
+    # NEW EXPORT TAB
+    with tabs[5]:
+        st.subheader("Data Export for Statistical Analysis")
+        
+        st.markdown("""
+        **Export raw data for detailed statistical analysis including:**
+        - Total Return & Sharpe Ratio comparison
+        - Maximum Drawdown analysis
+        - Significance tests between approaches
+        - Consistency analysis (how often one strategy outperformed another)
+        - Trade metrics (Win Rate, Number of Trades)
+        - Transaction cost impact analysis
+        """)
+
+        if st.button("🔄 Refresh Data for Export", use_container_width=True):
+            st.rerun()
+
+        # Collect all performance data for selected strategies
+        export_data = {}
+        timeseries_data_export = {}
+        
+        for strategy in selected_strategies:
+            # Get performance metrics
+            perf_data = api_client.get_trades_performance(market, strategy, trading_params)
+            export_data[strategy] = perf_data
+            
+            # Get timeseries data
+            ts_data = api_client.get_trades_performance_timeseries(market, strategy, trading_params)
+            timeseries_data_export[strategy] = ts_data
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("📊 Performance Summary Export")
+            
+            if export_data:
+                # Create comprehensive performance summary
+                summary_data = []
+                
+                for strategy, data in export_data.items():
+                    if data and "performance" in data:
+                        perf = data["performance"]
+                        
+                        row = {
+                            "strategy": strategy,
+                            "market": market,
+                            "total_trades": perf.get("total_trades", 0),
+                            "profitable_days": perf.get("profitable_days", 0),
+                            "total_days": perf.get("total_days", 0),
+                            "max_drawdown": perf.get("max_drawdown", 0),
+                            "sharpe_ratio": perf.get("sharpe_ratio", None),
+                            "final_performance": perf.get("final_performance", 0),
+                        }
+                        
+                        # Portfolio metrics
+                        if "portfolio" in perf:
+                            portfolio = perf["portfolio"]
+                            row.update({
+                                "initial_capital": portfolio.get("initial_capital", 0),
+                                "final_capital": portfolio.get("final_capital", 0),
+                                "max_capital": portfolio.get("max_capital", 0),
+                                "min_capital": portfolio.get("min_capital", 0),
+                            })
+                        
+                        # Net performance metrics
+                        if "net_performance" in perf:
+                            net_perf = perf["net_performance"]
+                            row.update({
+                                "total_performance": net_perf.get("total_performance", 0),
+                                "avg_performance": net_perf.get("avg_performance", 0),
+                                "win_rate": net_perf.get("win_rate", 0),
+                                "max_gain": net_perf.get("max_gain", 0),
+                                "max_loss": net_perf.get("max_loss", 0),
+                                "profitable_trades": net_perf.get("profitable_trades", 0),
+                            })
+                        
+                        # Cost metrics
+                        if "costs" in perf:
+                            costs = perf["costs"]
+                            row.update({
+                                "total_costs": costs.get("total_costs", 0),
+                                "avg_cost_per_trade": costs.get("avg_cost_per_trade", 0),
+                            })
+                        
+                        # Trading parameters
+                        row.update({
+                            "initial_capital_param": trading_params.get("initial_capital", 0),
+                            "position_size_percent": trading_params.get("position_size_percent", 0),
+                            "fixed_commission": trading_params.get("fixed_commission", 0),
+                            "variable_fee": trading_params.get("variable_fee", 0),
+                            "bid_ask_spread": trading_params.get("bid_ask_spread", 0),
+                            "risk_free_rate": trading_params.get("risk_free_rate", 0),
+                        })
+                        
+                        summary_data.append(row)
+                
+                if summary_data:
+                    summary_df = pd.DataFrame(summary_data)
+                    
+                    st.write(f"**{len(summary_data)} strategies** ready for export")
+                    
+                    # Show preview
+                    with st.expander("📋 Preview Performance Summary"):
+                        st.dataframe(summary_df, use_container_width=True)
+                    
+                    # Download button
+                    csv_buffer = io.StringIO()
+                    summary_df.to_csv(csv_buffer, index=False)
+                    
+                    st.download_button(
+                        label="📥 Download Performance Summary (CSV)",
+                        data=csv_buffer.getvalue(),
+                        file_name=f"{market}_strategy_comparison_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("No performance data available for export")
+
+        with col2:
+            st.subheader("📈 Timeseries Data Export")
+            
+            if timeseries_data_export:
+                # Create combined timeseries dataset
+                all_timeseries = []
+                
+                for strategy, data in timeseries_data_export.items():
+                    if data and "timeseries" in data:
+                        ts_df = pd.DataFrame.from_dict(data["timeseries"], orient='index')
+                        
+                        if not ts_df.empty:
+                            ts_df['strategy'] = strategy
+                            ts_df['market'] = market
+                            ts_df['date'] = ts_df.index
+                            ts_df = ts_df.reset_index(drop=True)
+                            all_timeseries.append(ts_df)
+                
+                if all_timeseries:
+                    combined_ts = pd.concat(all_timeseries, ignore_index=True)
+                    
+                    st.write(f"**{len(combined_ts)} data points** across all strategies")
+                    
+                    # Show preview
+                    with st.expander("📋 Preview Timeseries Data"):
+                        st.dataframe(combined_ts.head(10), use_container_width=True)
+                    
+                    # Download button
+                    csv_buffer = io.StringIO()
+                    combined_ts.to_csv(csv_buffer, index=False)
+                    
+                    st.download_button(
+                        label="📥 Download Timeseries Data (CSV)",
+                        data=csv_buffer.getvalue(),
+                        file_name=f"{market}_strategy_timeseries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    
+                    # Calculate daily returns for statistical analysis
+                    if st.button("📊 Prepare Returns Data for Significance Testing"):
+                        returns_data = []
+                        
+                        for strategy in selected_strategies:
+                            strategy_data = combined_ts[combined_ts['strategy'] == strategy].copy()
+                            
+                            if 'total_capital' in strategy_data.columns and len(strategy_data) > 1:
+                                strategy_data = strategy_data.sort_values('date')
+                                strategy_data['daily_return'] = strategy_data['total_capital'].pct_change()
+                                
+                                for _, row in strategy_data.iterrows():
+                                    if not pd.isna(row['daily_return']):
+                                        returns_data.append({
+                                            'date': row['date'],
+                                            'strategy': strategy,
+                                            'daily_return': row['daily_return'],
+                                            'total_capital': row['total_capital'],
+                                            'market': market
+                                        })
+                        
+                        if returns_data:
+                            returns_df = pd.DataFrame(returns_data)
+                            
+                            csv_buffer = io.StringIO()
+                            returns_df.to_csv(csv_buffer, index=False)
+                            
+                            st.download_button(
+                                label="📥 Download Daily Returns for Statistical Tests (CSV)",
+                                data=csv_buffer.getvalue(),
+                                file_name=f"{market}_daily_returns_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                else:
+                    st.warning("No timeseries data available for export")
+
+        st.markdown("---")
+
+        # Pairs analysis export
+        st.subheader("🔗 Pairs Analysis Export")
+        
+        # Window selection for pairs export
+        windows_by_strategy_export = {}
+        all_windows_export = set()
+
+        for strategy in selected_strategies:
+            windows_data = api_client.get_available_windows(market, strategy)
+            if windows_data and "windows" in windows_data:
+                strategy_windows = windows_data["windows"]
+                windows_by_strategy_export[strategy] = strategy_windows
+                all_windows_export.update(strategy_windows)
+
+        if all_windows_export:
+            selected_window_export = st.selectbox(
+                "Select Trading Window for Pairs Export",
+                sorted(list(all_windows_export)),
+                format_func=lambda x: f"Window {x}",
+                key="export_window_selector"
+            )
+
+            if selected_window_export and st.button("📊 Generate Pairs Export Data"):
+                pairs_export_data = []
+                
+                for strategy in selected_strategies:
+                    if strategy in windows_by_strategy_export and selected_window_export in windows_by_strategy_export[strategy]:
+                        pairs_data = api_client.get_pairs_for_window(market, selected_window_export, strategy)
+                        
+                        window_key = str(selected_window_export)
+                        window_data = pairs_data.get(window_key, {})
+                        
+                        if not window_data and selected_window_export in pairs_data:
+                            window_data = pairs_data.get(selected_window_export, {})
+                        
+                        if window_data and "pairs" in window_data:
+                            pairs_list = window_data["pairs"]
+                            
+                            for pair_data in pairs_list:
+                                pair_tuple = tuple(sorted(pair_data["pair"]))
+                                
+                                # Get detailed pair performance
+                                pair_perf = api_client.get_pair_performance(
+                                    market,
+                                    pair_tuple[0],
+                                    pair_tuple[1],
+                                    strategy,
+                                    window=selected_window_export,
+                                    trading_params=trading_params
+                                )
+                                
+                                row = {
+                                    "strategy": strategy,
+                                    "market": market,
+                                    "window": selected_window_export,
+                                    "symbol1": pair_tuple[0],
+                                    "symbol2": pair_tuple[1],
+                                    "pair_name": f"{pair_tuple[0]}-{pair_tuple[1]}",
+                                    "trades_in_window": pair_data["trades"],
+                                }
+                                
+                                if pair_perf and "net_performance" in pair_perf:
+                                    net_perf = pair_perf["net_performance"]
+                                    row.update({
+                                        "total_performance": net_perf.get("total_performance", 0),
+                                        "avg_performance": net_perf.get("avg_performance", 0),
+                                        "win_rate": net_perf.get("win_rate", 0),
+                                        "max_gain": net_perf.get("max_gain", 0),
+                                        "max_loss": net_perf.get("max_loss", 0),
+                                        "profitable_trades": net_perf.get("profitable_trades", 0),
+                                        "total_trades": net_perf.get("total_trades", 0),
+                                    })
+                                
+                                if pair_perf and "sharpe_ratio" in pair_perf:
+                                    row["sharpe_ratio"] = pair_perf["sharpe_ratio"]
+                                
+                                if pair_perf and "costs" in pair_perf:
+                                    costs = pair_perf["costs"]
+                                    row.update({
+                                        "total_costs": costs.get("total_costs", 0),
+                                        "avg_cost_per_trade": costs.get("avg_cost_per_trade", 0),
+                                    })
+                                
+                                pairs_export_data.append(row)
+                
+                if pairs_export_data:
+                    pairs_df = pd.DataFrame(pairs_export_data)
+                    
+                    st.success(f"Generated {len(pairs_export_data)} pair records for export")
+                    
+                    with st.expander("📋 Preview Pairs Data"):
+                        st.dataframe(pairs_df.head(10), use_container_width=True)
+                    
+                    csv_buffer = io.StringIO()
+                    pairs_df.to_csv(csv_buffer, index=False)
+                    
+                    st.download_button(
+                        label="📥 Download Pairs Analysis Data (CSV)",
+                        data=csv_buffer.getvalue(),
+                        file_name=f"{market}_pairs_analysis_window{selected_window_export}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("No pairs data found for the selected window and strategies")
+        else:
+            st.info("No trading windows available for pairs export")
+
+        st.markdown("---")
+        
+        # Analysis guidance
+        st.subheader("📚 Analysis Guidance")
+        
+        with st.expander("🧮 Statistical Analysis Recommendations"):
+            st.markdown("""
+            **With the exported data, you can perform the following analyses:**
+            
+            **1. Significance Testing**
+            ```python
+            # Example: t-test for comparing daily returns
+            from scipy import stats
+            
+            strategy1_returns = data[data['strategy'] == 'Strategy1']['daily_return']
+            strategy2_returns = data[data['strategy'] == 'Strategy2']['daily_return']
+            
+            t_stat, p_value = stats.ttest_ind(strategy1_returns, strategy2_returns)
+            ```
+            
+            **2. Consistency Analysis**
+            ```python
+            # Count how often Strategy A outperformed Strategy B
+            comparison = data.pivot(index='date', columns='strategy', values='total_capital')
+            strategy_a_wins = (comparison['StrategyA'] > comparison['StrategyB']).sum()
+            ```
+            
+            **3. Risk-Adjusted Performance**
+            ```python
+            # Calculate Sharpe ratio, Sortino ratio, etc.
+            risk_free_rate = 0.02  # from your trading parameters
+            excess_returns = daily_returns - risk_free_rate/252
+            sharpe_ratio = excess_returns.mean() / excess_returns.std() * np.sqrt(252)
+            ```
+            
+            **4. Transaction Cost Impact**
+            ```python
+            # Compare performance before and after costs
+            gross_performance = net_performance + total_costs
+            cost_impact = total_costs / initial_capital
+            ```
+            """)
+        
+        with st.expander("📋 Data Dictionary"):
+            st.markdown("""
+            **Performance Summary Fields:**
+            - `strategy`: Strategy identifier
+            - `total_trades`: Number of trades executed
+            - `win_rate`: Percentage of profitable trades
+            - `sharpe_ratio`: Risk-adjusted return measure
+            - `max_drawdown`: Maximum peak-to-trough decline
+            - `total_performance`: Net performance after costs
+            - `total_costs`: Sum of all transaction costs
+            
+            **Timeseries Fields:**
+            - `date`: Trading date
+            - `total_capital`: Portfolio value
+            - `daily_pnl`: Daily profit/loss
+            - `cumulative_pnl`: Cumulative profit/loss
+            - `active_positions`: Number of active positions
+            
+            **Pairs Analysis Fields:**
+            - `pair_name`: Symbol pair identifier
+            - `trades_in_window`: Number of trades for this pair
+            - `total_performance`: Pair's contribution to portfolio
+            - `win_rate`: Success rate for this pair
+            """)

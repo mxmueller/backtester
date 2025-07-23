@@ -8,39 +8,39 @@ MINIO_ROOT_PASSWORD=$(yq '.minio.password' $CONFIG_FILE)
 BASE_BUCKET=$(yq '.storage.base_bucket' $CONFIG_FILE)
 MARKETS=$(yq '.storage.markets[].name' $CONFIG_FILE)
 
-# MinIO runs in background via CMD
-echo "Waiting for MinIO server to be ready..."
+# MinIO im Hintergrund starten
+minio server /data --console-address ":9001" &
+
+# Richtige Warteschleife - warte bis MinIO bereit ist
+echo "Warte auf MinIO Server..."
 READY_CHECK_LOOP=0
 MAX_READY_CHECK_LOOPS=30
 while true; do
   if mc alias set myminio http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null; then
-    echo "MinIO server is ready."
+    echo "MinIO-Server ist bereit."
     break
   fi
   if [ "$READY_CHECK_LOOP" -ge "$MAX_READY_CHECK_LOOPS" ]; then
-    echo "Timeout waiting for MinIO server."
+    echo "Timeout beim Warten auf MinIO-Server."
     exit 1
   fi
   READY_CHECK_LOOP=$((READY_CHECK_LOOP + 1))
-  echo "Waiting for MinIO server... (attempt $READY_CHECK_LOOP/$MAX_READY_CHECK_LOOPS)"
+  echo "Warte auf den Start des MinIO-Servers... (Versuch $READY_CHECK_LOOP/$MAX_READY_CHECK_LOOPS)"
   sleep 2
 done
 
-# Create base bucket
+# Jetzt erstelle die Buckets (MinIO ist bereit)
 mc mb myminio/$BASE_BUCKET
 
-# Create market buckets and load data
 for MARKET in $MARKETS; do
     mc mb myminio/$BASE_BUCKET/$MARKET
     mc mb myminio/$BASE_BUCKET/$MARKET/strategies
 
-    # Load market data
     DATA_PATH=$(yq ".storage.markets[] | select(.name == \"$MARKET\") | .data_path" $CONFIG_FILE)
     DATA_FILE=$(yq ".storage.markets[] | select(.name == \"$MARKET\") | .data_file" $CONFIG_FILE)
     mc cp $DATA_PATH myminio/$BASE_BUCKET/$MARKET/$DATA_FILE
     mc tag set myminio/$BASE_BUCKET/$MARKET/$DATA_FILE "project=Test&version=1.0" 2>/dev/null || true
 
-    # Load strategies
     STRATEGIES_COUNT=$(yq ".storage.markets[] | select(.name == \"$MARKET\") | .strategies | length" $CONFIG_FILE)
 
     for ((i=0; i<$STRATEGIES_COUNT; i++)); do
